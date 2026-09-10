@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AutoNation Customer Lead CRM - Postman API Guide</title>
+<style>
+body{font-family:Arial,sans-serif;margin:0;background:#f3f6f9;color:#243447;line-height:1.5}
+.container{max-width:1150px;margin:auto;background:#fff;padding:40px 55px}
+h1{color:#0b1f33}h2{color:#0b1f33;border-left:5px solid #1769aa;padding-left:12px;margin-top:38px}
+h3{color:#16547b}.header{border-bottom:4px solid #1769aa;padding-bottom:20px}
+.info,.note,.success{padding:15px;margin:18px 0;border-radius:6px}
+.info{background:#f4f7fa;border:1px solid #d9e2ec}.note{background:#fff8e8;border-left:4px solid #d99a20}.success{background:#edf9f3;border-left:4px solid #197a52}
+.api{border:1px solid #d9e2ec;border-radius:8px;margin:22px 0;padding:20px}
+.method{font-weight:bold;color:#fff;background:#1769aa;padding:5px 10px;border-radius:4px}
+.url{font-family:Consolas,monospace;background:#eef3f7;padding:8px 12px;border-radius:5px;display:inline-block;margin:8px 0}
+pre{background:#101820;color:#e8edf2;padding:18px;border-radius:7px;overflow:auto;font-size:13px}
+table{width:100%;border-collapse:collapse;margin:15px 0}th{background:#0b1f33;color:white;text-align:left;padding:9px}td{border:1px solid #d9e2ec;padding:9px}tr:nth-child(even){background:#fafcfe}
+.footer{margin-top:45px;border-top:1px solid #d9e2ec;padding-top:15px;color:#667}
+</style>
+</head>
+<body><div class="container">
+<div class="header">
+<h1>AutoNation Customer Lead CRM</h1>
+<h2 style="border:0;padding:0;margin:8px 0">Postman &amp; cURL API Guide</h2>
+<p><b>Spring Boot:</b> 2.7.15 &nbsp; | &nbsp; <b>Java:</b> 17 &nbsp; | &nbsp; <b>MySQL:</b> 8.0.20</p>
+<p><b>Base URL:</b> http://localhost:8080</p>
+<p><b>Candidate:</b> Srikanth Mamillapalli | smailla1208@outlook.com | 9739211566</p>
+</div>
+
+<div class="info"><b>Execution order:</b> Start the application, create account managers first, then create leads. Use the actual IDs returned by the APIs in subsequent requests.</div>
+
+<h2>1. Account Manager APIs</h2>
+<div class="api"><h3>Create Account Manager</h3><span class="method">POST</span><div class="url">http://localhost:8080/api/account-managers</div>
+<pre>Content-Type: application/json</pre><pre>{
+  "name": "Paul Manager",
+  "email": "Paul.manager@example.com",
+  "phone": "9876500000"
+}</pre>
+<pre>curl --location 'http://localhost:8080/api/account-managers' \
+--header 'Content-Type: application/json' \
+--data '{
+  "name": "Paul Manager",
+  "email": "Paul.manager@example.com",
+  "phone": "9876500000"
+}'</pre></div>
+
+<div class="api"><h3>Create Second Account Manager</h3><span class="method">POST</span><div class="url">http://localhost:8080/api/account-managers</div>
+<pre>{
+  "name": "Pavan Manager",
+  "email": "Pavan.manager@example.com",
+  "phone": "9876500001"
+}</pre>
+<pre>curl --location 'http://localhost:8080/api/account-managers' \
+--header 'Content-Type: application/json' \
+--data '{
+  "name": "Pavan Manager",
+  "email": "Pavan.manager@example.com",
+  "phone": "9876500001"
+}'</pre></div>
+
+<div class="api"><h3>Get All Account Managers</h3><span class="method">GET</span><div class="url">http://localhost:8080/api/account-managers</div><pre>curl --location 'http://localhost:8080/api/account-managers'</pre></div>
+<div class="api"><h3>Get Account Manager by ID</h3><span class="method">GET</span><div class="url">http://localhost:8080/api/account-managers/1</div><pre>curl --location 'http://localhost:8080/api/account-managers/1'</pre></div>
+
+<h2>2. Customer Lead APIs</h2>
+<div class="api"><h3>Create Customer Lead</h3><span class="method">POST</span><div class="url">http://localhost:8080/api/leads</div>
+<pre>Content-Type: application/json
+Idempotency-Key: 11111111-1111-1111-1111-111111111111</pre>
+<pre>{
+  "name": "Srikanth Mamillapalli",
+  "email": "smamilla1208@outlook.com",
+  "phone": "9876543210",
+  "comment": "Interested in a new vehicle"
+}</pre>
+<pre>curl --location 'http://localhost:8080/api/leads' \
+--header 'Content-Type: application/json' \
+--header 'Idempotency-Key: 11111111-1111-1111-1111-111111111111' \
+--data '{
+  "name": "Srikanth Mamillapalli",
+  "email": "smamilla1208@outlook.com",
+  "phone": "9876543210",
+  "comment": "Interested in a new vehicle"
+}'</pre>
+<div class="success">Save the returned lead ID. The following examples assume lead ID <b>1</b>.</div></div>
+
+<div class="api"><h3>Get Customer Lead</h3><span class="method">GET</span><div class="url">http://localhost:8080/api/leads/1</div><pre>curl --location 'http://localhost:8080/api/leads/1'</pre></div>
+
+<h2>3. Duplicate Submission / Idempotency</h2>
+<div class="api"><h3>Submit the Same Lead Again</h3>
+<p>Send the same Idempotency-Key to represent the same logical HTTP submission.</p>
+<pre>curl --location 'http://localhost:8080/api/leads' \
+--header 'Content-Type: application/json' \
+--header 'Idempotency-Key: 11111111-1111-1111-1111-111111111111' \
+--data '{
+  "name": "Srikanth Mamillapalli",
+  "email": "smamilla1208@outlook.com",
+  "phone": "9876543210",
+  "comment": "Interested in a new vehicle"
+}'</pre>
+<div class="note">The application checks the key before creating another lead. The database UNIQUE constraint also protects against concurrent duplicate inserts.</div></div>
+
+<h2>4. Lead Lifecycle APIs</h2>
+<table><tr><th>Step</th><th>Method</th><th>Endpoint</th><th>Status</th></tr>
+<tr><td>Assign lead</td><td>PUT</td><td>/api/leads/{id}/assign</td><td>ASSIGNED</td></tr>
+<tr><td>Initial Call</td><td>PUT</td><td>/api/leads/{id}/initial-call</td><td>INITIAL_CALL</td></tr>
+<tr><td>Proposal</td><td>PUT</td><td>/api/leads/{id}/proposal</td><td>PROPOSAL</td></tr>
+<tr><td>Present Proposal</td><td>PUT</td><td>/api/leads/{id}/present-proposal</td><td>PRESENT_PROPOSAL</td></tr>
+<tr><td>Close</td><td>PUT</td><td>/api/leads/{id}/close</td><td>CLOSED</td></tr></table>
+
+<div class="api"><h3>Assign Lead</h3><span class="method">PUT</span><div class="url">http://localhost:8080/api/leads/1/assign</div>
+<pre>curl --location --request PUT 'http://localhost:8080/api/leads/1/assign' \
+--header 'Content-Type: application/json' \
+--data '{
+  "accountManagerId": 1,
+  "assignedById": 1
+}'</pre></div>
+
+<div class="api"><h3>Start Initial Call</h3><span class="method">PUT</span><div class="url">http://localhost:8080/api/leads/1/initial-call</div><pre>curl --location --request PUT 'http://localhost:8080/api/leads/1/initial-call'</pre></div>
+<div class="api"><h3>Move to Proposal</h3><span class="method">PUT</span><div class="url">http://localhost:8080/api/leads/1/proposal</div><pre>curl --location --request PUT 'http://localhost:8080/api/leads/1/proposal'</pre></div>
+<div class="api"><h3>Present Proposal</h3><span class="method">PUT</span><div class="url">http://localhost:8080/api/leads/1/present-proposal</div><pre>curl --location --request PUT 'http://localhost:8080/api/leads/1/present-proposal'</pre></div>
+<div class="api"><h3>Close Lead – SOLD</h3><span class="method">PUT</span><div class="url">http://localhost:8080/api/leads/1/close</div>
+<pre>curl --location --request PUT 'http://localhost:8080/api/leads/1/close' \
+--header 'Content-Type: application/json' \
+--data '{
+  "reason": "SOLD",
+  "comments": "Customer purchased the vehicle"
+}'</pre></div>
+
+<h2>5. Alternative Outcomes</h2>
+<div class="api"><h3>Close During Initial Call – CANT_MEET_NEED</h3>
+<pre>curl --location 'http://localhost:8080/api/leads' \
+--header 'Content-Type: application/json' \
+--header 'Idempotency-Key: 22222222-2222-2222-2222-222222222222' \
+--data '{
+  "name": "Kalyani Mamillapalli",
+  "email": "KalyaniMamillapalli@example.com",
+  "phone": "9876543211",
+  "comment": "Required product is not available"
+}'</pre>
+<pre>curl --location --request PUT 'http://localhost:8080/api/leads/2/assign' \
+--header 'Content-Type: application/json' \
+--data '{"accountManagerId":1,"assignedById":1}'</pre>
+<pre>curl --location --request PUT 'http://localhost:8080/api/leads/2/initial-call'</pre>
+<pre>curl --location --request PUT 'http://localhost:8080/api/leads/2/close' \
+--header 'Content-Type: application/json' \
+--data '{
+  "reason": "CANT_MEET_NEED",
+  "comments": "Required product is not available"
+}'</pre></div>
+
+<div class="api"><h3>Close After Present Proposal – NO_SALE</h3>
+<p>The lead must first follow NEW → ASSIGNED → INITIAL_CALL → PROPOSAL → PRESENT_PROPOSAL.</p>
+<pre>curl --location --request PUT 'http://localhost:8080/api/leads/3/close' \
+--header 'Content-Type: application/json' \
+--data '{
+  "reason": "NO_SALE",
+  "comments": "Customer decided not to proceed"
+}'</pre></div>
+
+<h2>6. Reassign Lead</h2>
+<div class="api"><h3>Reassign to Another Account Manager</h3><span class="method">PUT</span><div class="url">http://localhost:8080/api/leads/1/assign</div>
+<pre>curl --location --request PUT 'http://localhost:8080/api/leads/1/assign' \
+--header 'Content-Type: application/json' \
+--data '{
+  "accountManagerId": 2,
+  "assignedById": 1
+}'</pre></div>
+
+<h2>7. History APIs</h2>
+<div class="api"><h3>Status History</h3><span class="method">GET</span><div class="url">http://localhost:8080/api/leads/1/status-history</div><pre>curl --location 'http://localhost:8080/api/leads/1/status-history'</pre></div>
+<div class="api"><h3>Assignment History</h3><span class="method">GET</span><div class="url">http://localhost:8080/api/leads/1/assignment-history</div><pre>curl --location 'http://localhost:8080/api/leads/1/assignment-history'</pre></div>
+
+<h2>8. Lead Report APIs</h2>
+<div class="api"><h3>All Leads</h3><pre>curl --location 'http://localhost:8080/api/leads/report'</pre></div>
+<div class="api"><h3>Search by Name</h3><pre>curl --location 'http://localhost:8080/api/leads/report?name=John'</pre></div>
+<div class="api"><h3>Search by Email</h3><pre>curl --location 'http://localhost:8080/api/leads/report?email=smamilla1208@outlook.com'</pre></div>
+<div class="api"><h3>Search by Phone</h3><pre>curl --location 'http://localhost:8080/api/leads/report?phone=9876543210'</pre></div>
+<div class="api"><h3>Search by Account Manager</h3><pre>curl --location 'http://localhost:8080/api/leads/report?accountManagerId=1'</pre></div>
+<div class="api"><h3>Search by Status</h3><pre>curl --location 'http://localhost:8080/api/leads/report?status=PROPOSAL'</pre></div>
+<div class="api"><h3>Multiple Filters</h3><pre>curl --location 'http://localhost:8080/api/leads/report?name=John&amp;email=smamilla1208@outlook.com&amp;phone=9876&amp;accountManagerId=1&amp;status=PROPOSAL'</pre></div>
+<div class="api"><h3>Pagination and Sorting</h3><pre>curl --location 'http://localhost:8080/api/leads/report?page=0&amp;size=10&amp;sort=createdAt,desc'</pre></div>
+
+<h2>9. Validation and Error Scenarios</h2>
+<div class="api"><h3>Validation Error</h3>
+<pre>curl --location 'http://localhost:8080/api/leads' \
+--header 'Content-Type: application/json' \
+--data '{
+  "name": "",
+  "email": "invalid-email",
+  "phone": "12",
+  "comment": "Test"
+}'</pre>
+<p><b>Expected:</b> 400 BAD_REQUEST</p>
+<pre>{
+  "errorCode": "COMMON-001",
+  "message": "Request validation failed",
+  "path": "/api/leads",
+  "fieldErrors": {
+    "name": "Name is required",
+    "email": "Email must be valid",
+    "phone": "Phone must contain 7 to 20 valid phone characters"
+  }
+}</pre></div>
+
+<div class="api"><h3>Lead Not Found</h3><pre>curl --location 'http://localhost:8080/api/leads/99999'</pre>
+<p><b>Expected:</b> 404 NOT_FOUND</p>
+<pre>{
+  "errorCode": "LEAD-001",
+  "message": "Customer lead not found: 99999",
+  "path": "/api/leads/99999"
+}</pre></div>
+
+<div class="api"><h3>Invalid Lifecycle Transition</h3>
+<p>Example: attempting to move a NEW lead directly to PROPOSAL.</p>
+<pre>curl --location --request PUT 'http://localhost:8080/api/leads/4/proposal'</pre>
+<p><b>Expected:</b> 400 BAD_REQUEST</p>
+<pre>{
+  "errorCode": "LEAD-002",
+  "message": "Cannot change lead status from NEW to PROPOSAL",
+  "path": "/api/leads/4/proposal"
+}</pre></div>
+
+<h2>10. Postman Collection Structure</h2>
+<table><tr><th>Folder</th><th>Requests</th></tr>
+<tr><td>01 Account Managers</td><td>Create Manager, Create Manager 2, Get Manager, Get All Managers</td></tr>
+<tr><td>02 Customer Leads</td><td>Create Lead, Duplicate Submission, Get Lead</td></tr>
+<tr><td>03 Lead Lifecycle</td><td>Assign, Initial Call, Proposal, Present Proposal, Close – Sold</td></tr>
+<tr><td>04 Alternative Outcomes</td><td>Can't Meet Need, No Sale</td></tr>
+<tr><td>05 Reassignment</td><td>Reassign Lead</td></tr>
+<tr><td>06 History</td><td>Status History, Assignment History</td></tr>
+<tr><td>07 Reports</td><td>All, Name, Email, Phone, Manager, Status, Multiple Filters, Pagination</td></tr>
+<tr><td>08 Error Scenarios</td><td>Validation, Not Found, Invalid Transition</td></tr></table>
+
+<h2>11. End-to-End Test Sequence</h2>
+<div class="success"><ol>
+<li>Create Account Manager 1.</li><li>Create Account Manager 2.</li><li>Create Customer Lead with Idempotency-Key.</li>
+<li>Assign the lead.</li><li>Start Initial Call.</li><li>Move to Proposal.</li><li>Move to Present Proposal.</li>
+<li>Close with SOLD or NO_SALE.</li><li>Check status history.</li><li>Check assignment history.</li>
+<li>Run report APIs with filters and pagination.</li><li>Test validation and invalid lifecycle transitions.</li>
+</ol></div>
+
+<div class="footer"><b>AutoNation Customer Lead CRM – Postman &amp; cURL API Guide</b><br>
+Srikanth Mamillapalli | smailla1208@outlook.com | 9739211566</div>
+</div></body></html>

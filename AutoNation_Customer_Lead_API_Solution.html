@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoNation - Customer Lead Management API Solution Design</title>
+<style>
+:root{--navy:#0b1f33;--blue:#1769aa;--light:#f4f7fa;--border:#d9e2ec;--text:#243447;--muted:#5b6b7a;--green:#197a52;--orange:#b66a00}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:#eef2f6;line-height:1.55}
+.container{max-width:1180px;margin:auto;background:#fff;min-height:100vh;padding:40px 54px}
+.header{border-bottom:4px solid var(--blue);padding-bottom:24px;margin-bottom:30px}
+.header h1{margin:0;color:var(--navy);font-size:32px}
+.header p{margin:7px 0;color:var(--muted)}
+h2{color:var(--navy);border-left:5px solid var(--blue);padding-left:12px;margin-top:40px}
+h3{color:#164e78;margin-top:28px}
+h4{color:var(--navy)}
+.card{background:var(--light);border:1px solid var(--border);border-radius:9px;padding:20px;margin:18px 0}
+.note{background:#fff8e8;border-left:4px solid #e0a326;padding:14px 18px;margin:16px 0}
+.success{background:#edf9f3;border-left:4px solid var(--green);padding:14px 18px;margin:16px 0}
+pre{background:#101820;color:#e8edf2;padding:18px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.5}
+code{font-family:Consolas,Monaco,monospace}
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:14px}
+th{background:var(--navy);color:#fff;text-align:left;padding:10px;border:1px solid #c7d2dc}
+td{padding:9px 10px;border:1px solid var(--border);vertical-align:top}
+tr:nth-child(even){background:#fafcfe}
+.badge{display:inline-block;background:#e7f0f8;color:#14527d;border-radius:15px;padding:3px 10px;font-size:12px;margin:2px}
+.diagram{background:#fafafa;border:1px solid var(--border);padding:20px;border-radius:8px;text-align:center;font-family:Consolas,monospace;white-space:pre;overflow:auto}
+.footer{margin-top:45px;border-top:1px solid var(--border);padding-top:18px;color:var(--muted);font-size:13px}
+ul{padding-left:24px}.small{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+<h1>Customer Lead Management API – Solution Design</h1>
+<p><strong>Prepared for:</strong> AutoNation</p>
+<p><strong>Technology:</strong> Java 17, Spring Boot 2.7.15, Spring Data JPA/Hibernate, MySQL 8.0.20</p>
+<p><strong>Purpose:</strong> Design and implementation of APIs to capture and manage customer leads</p>
+<p><strong>Candidate:</strong> Srikanth Mamillapalli &nbsp; | &nbsp;
+<strong>Email:</strong> smailla1208@outlook.com &nbsp; | &nbsp;
+<strong>Phone:</strong> 9739211566</p>
+</div>
+
+<div class="card">
+<h3>Contents</h3>
+<ol>
+<li>Solution Overview</li>
+<li>Question 1 – Capture Customer Leads</li>
+<li>Question 2 – CRM Lead Lifecycle</li>
+<li>Question 3 – Prevent Duplicate Leads</li>
+<li>Question 4 – Searchable Lead Report</li>
+<li>Database Tables and Relationships</li>
+<li>API and Layered Architecture</li>
+<li>Design Considerations</li>
+</ol>
+</div>
+
+<h2>1. Solution Overview</h2>
+<p>
+The solution separates customer-facing lead capture from CRM lifecycle management.
+Spring Boot exposes REST APIs, the service layer contains business rules, Spring Data JPA/Hibernate
+handles persistence, and MySQL stores lead, assignment and lifecycle information.
+</p>
+
+<div class="diagram">
+Customer Website
+      |
+      | POST /api/leads
+      v
++----------------------+
+| Spring Boot REST API |
++----------+-----------+
+           |
+           v
++----------------------+
+| Service Layer        |
+| Business Rules       |
++----------+-----------+
+           |
+           v
++----------------------+
+| Spring Data JPA      |
+| Hibernate            |
++----------+-----------+
+           |
+           v
++---------------------------------------------+
+| MySQL                                       |
+| customer_lead                               |
+| account_manager                             |
+| lead_status_history                         |
+| lead_assignment_history                     |
++---------------------------------------------+
+           |
+           v
+          CRM
+</div>
+
+<h2>2. Question 1 – Capture Customer Leads</h2>
+<h3>Requirement</h3>
+<p>
+Build an API to capture customer leads containing name, email, phone and comment,
+and save the lead using Hibernate/JPA.
+</p>
+
+<h3>API</h3>
+<pre><code>POST /api/leads
+Content-Type: application/json
+
+{
+  "name": "Srikanth Mamillapalli",
+  "email": "smamilla1208@outlook.com",
+  "phone": "9739211566",
+  "comment": "Interested in a new vehicle"
+}</code></pre>
+
+<h3>Response</h3>
+<pre><code>201 Created
+
+{
+  "id": 1001,
+  "name": "Srikanth Mamillapalli",
+  "email": "smamilla1208@outlook.com",
+  "phone": "9739211566",
+  "comment": "Interested in a new vehicle",
+  "status": "NEW"
+}</code></pre>
+
+<h3>MySQL – customer_lead</h3>
+<pre><code>CREATE TABLE customer_lead (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(150) NOT NULL,
+    email VARCHAR(150) NOT NULL,
+    phone VARCHAR(20),
+    comment TEXT,
+
+    account_manager_id BIGINT,
+
+    status VARCHAR(30) NOT NULL,
+    close_reason VARCHAR(30),
+
+    idempotency_key VARCHAR(100),
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_lead_manager
+        FOREIGN KEY (account_manager_id)
+        REFERENCES account_manager(id),
+
+    INDEX idx_lead_name (name),
+    INDEX idx_lead_email (email),
+    INDEX idx_lead_phone (phone),
+    INDEX idx_lead_status (status),
+    INDEX idx_lead_manager (account_manager_id),
+
+    UNIQUE KEY uk_lead_idempotency (idempotency_key)
+);</code></pre>
+
+<h3>JPA Entity</h3>
+<pre><code>@Entity
+@Table(name = "customer_lead")
+public class CustomerLead {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, length = 150)
+    private String name;
+
+    @Column(nullable = false, length = 150)
+    private String email;
+
+    @Column(length = 20)
+    private String phone;
+
+    @Column(columnDefinition = "TEXT")
+    private String comment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "account_manager_id")
+    private AccountManager accountManager;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private LeadStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private CloseReason closeReason;
+
+    @Column(name = "idempotency_key", unique = true, length = 100)
+    private String idempotencyKey;
+
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    @Version
+    private Long version;
+}</code></pre>
+
+<h2>3. Question 2 – CRM Lead Lifecycle</h2>
+
+<div class="diagram">
+NEW
+  |
+  v
+ASSIGNED
+  |
+  v
+INITIAL_CALL
+  |------------------------------|
+  |                              |
+  v                              v
+CANT_MEET_NEED                 PROPOSAL
+  |                              |
+  v                              v
+CLOSED                    PRESENT_PROPOSAL
+                                 |
+                                 v
+                                CLOSED
+                              /        \
+                           SOLD       NO_SALE
+</div>
+
+<h3>Lifecycle Rules</h3>
+<table>
+<tr><th>Current State</th><th>Action</th><th>Next State</th></tr>
+<tr><td>NEW</td><td>Sales director assigns account manager</td><td>ASSIGNED</td></tr>
+<tr><td>ASSIGNED</td><td>Account manager starts customer call</td><td>INITIAL_CALL</td></tr>
+<tr><td>INITIAL_CALL</td><td>Product cannot meet customer need</td><td>CLOSED / CANT_MEET_NEED</td></tr>
+<tr><td>INITIAL_CALL</td><td>Suitable product is available</td><td>PROPOSAL</td></tr>
+<tr><td>INITIAL_CALL</td><td>Another account manager is better suited</td><td>Reassign + PROPOSAL</td></tr>
+<tr><td>PROPOSAL</td><td>Proposal is prepared</td><td>PRESENT_PROPOSAL</td></tr>
+<tr><td>PRESENT_PROPOSAL</td><td>Sale completed</td><td>CLOSED / SOLD</td></tr>
+<tr><td>PRESENT_PROPOSAL</td><td>No sale</td><td>CLOSED / NO_SALE</td></tr>
+</table>
+
+<h3>Status Values</h3>
+<p>
+<span class="badge">NEW</span>
+<span class="badge">ASSIGNED</span>
+<span class="badge">INITIAL_CALL</span>
+<span class="badge">PROPOSAL</span>
+<span class="badge">PRESENT_PROPOSAL</span>
+<span class="badge">CLOSED</span>
+</p>
+
+<h3>Close Reasons</h3>
+<p>
+<span class="badge">CANT_MEET_NEED</span>
+<span class="badge">SOLD</span>
+<span class="badge">NO_SALE</span>
+</p>
+
+<h3>CRM APIs</h3>
+<table>
+<tr><th>Purpose</th><th>Method</th><th>Endpoint</th></tr>
+<tr><td>Create lead</td><td>POST</td><td>/api/leads</td></tr>
+<tr><td>Get lead</td><td>GET</td><td>/api/leads/{id}</td></tr>
+<tr><td>Assign / reassign manager</td><td>PUT</td><td>/api/leads/{id}/assign</td></tr>
+<tr><td>Start Initial Call</td><td>PUT</td><td>/api/leads/{id}/initial-call</td></tr>
+<tr><td>Move to Proposal</td><td>PUT</td><td>/api/leads/{id}/proposal</td></tr>
+<tr><td>Present Proposal</td><td>PUT</td><td>/api/leads/{id}/present-proposal</td></tr>
+<tr><td>Close lead</td><td>PUT</td><td>/api/leads/{id}/close</td></tr>
+<tr><td>Status history</td><td>GET</td><td>/api/leads/{id}/status-history</td></tr>
+<tr><td>Assignment history</td><td>GET</td><td>/api/leads/{id}/assignment-history</td></tr>
+</table>
+
+<h3>Assign / Reassign</h3>
+<pre><code>PUT /api/leads/1001/assign
+
+{
+  "accountManagerId": 25
+}</code></pre>
+
+<h3>Close Lead</h3>
+<pre><code>PUT /api/leads/1001/close
+
+{
+  "reason": "SOLD"
+}</code></pre>
+
+<h3>Lead Status History</h3>
+<pre><code>CREATE TABLE lead_status_history (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    lead_id BIGINT NOT NULL,
+    old_status VARCHAR(30),
+    new_status VARCHAR(30) NOT NULL,
+    changed_by BIGINT,
+    comments VARCHAR(500),
+    changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_history_lead
+        FOREIGN KEY (lead_id)
+        REFERENCES customer_lead(id),
+
+    CONSTRAINT fk_history_user
+        FOREIGN KEY (changed_by)
+        REFERENCES account_manager(id),
+
+    INDEX idx_history_lead (lead_id),
+    INDEX idx_history_changed_at (changed_at)
+);</code></pre>
+
+<h3>Lead Assignment History</h3>
+<pre><code>CREATE TABLE lead_assignment_history (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    lead_id BIGINT NOT NULL,
+    old_account_manager_id BIGINT,
+    new_account_manager_id BIGINT NOT NULL,
+    assigned_by BIGINT,
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_assignment_lead
+        FOREIGN KEY (lead_id)
+        REFERENCES customer_lead(id),
+
+    CONSTRAINT fk_old_manager
+        FOREIGN KEY (old_account_manager_id)
+        REFERENCES account_manager(id),
+
+    CONSTRAINT fk_new_manager
+        FOREIGN KEY (new_account_manager_id)
+        REFERENCES account_manager(id),
+
+    CONSTRAINT fk_assigned_by
+        FOREIGN KEY (assigned_by)
+        REFERENCES account_manager(id),
+
+    INDEX idx_assignment_lead (lead_id)
+);</code></pre>
+
+<h2>4. Question 3 – Prevent Duplicate Customer Leads</h2>
+<h3>Requirement</h3>
+<p>
+The system must prevent duplicate records when customers submit the same lead multiple times.
+The solution distinguishes between a repeated HTTP request and a business-level duplicate customer lead.
+</p>
+
+<h3>Duplicate Detection</h3>
+<p>
+The service layer performs a duplicate check through the repository using normalized customer data,
+for example email and phone. The exact matching rule should be agreed with the business because the
+same customer may legitimately create more than one lead over time.
+</p>
+
+<pre><code>public interface CustomerLeadRepository
+        extends JpaRepository&lt;CustomerLead, Long&gt; {
+
+    Optional&lt;CustomerLead&gt;
+        findFirstByEmailIgnoreCaseAndPhone(
+            String email,
+            String phone);
+
+    Optional&lt;CustomerLead&gt;
+        findByIdempotencyKey(String idempotencyKey);
+}</code></pre>
+
+<h3>Service Logic</h3>
+<pre><code>@Transactional
+public CustomerLeadResponse createLead(
+        CustomerLeadRequest request,
+        String idempotencyKey) {
+
+    if (idempotencyKey != null) {
+        Optional&lt;CustomerLead&gt; existing =
+            repository.findByIdempotencyKey(idempotencyKey);
+
+        if (existing.isPresent()) {
+            return mapper.toResponse(existing.get());
+        }
+    }
+
+    String email = request.getEmail()
+            .trim()
+            .toLowerCase();
+
+    String phone = normalizePhone(request.getPhone());
+
+    Optional&lt;CustomerLead&gt; duplicate =
+        repository.findFirstByEmailIgnoreCaseAndPhone(
+            email, phone);
+
+    if (duplicate.isPresent()) {
+        return mapper.toResponse(duplicate.get());
+    }
+
+    CustomerLead lead = mapper.toEntity(request);
+    lead.setEmail(email);
+    lead.setPhone(phone);
+    lead.setIdempotencyKey(idempotencyKey);
+    lead.setStatus(LeadStatus.NEW);
+
+    return mapper.toResponse(repository.save(lead));
+}</code></pre>
+
+<div class="note">
+<strong>Concurrency:</strong> A service-level SELECT followed by INSERT should not be treated as the only
+protection. Two concurrent requests can both pass the SELECT. A database UNIQUE constraint is appropriate
+for any business invariant that must never be violated.
+</div>
+
+<h3>Idempotency-Key</h3>
+<p>
+For repeated submission of the same HTTP request, the client can send an Idempotency-Key.
+The key identifies one logical submission. A repeated request with the same key returns the previously
+created lead instead of creating another lead.
+</p>
+
+<pre><code>POST /api/leads
+Idempotency-Key: 8f7a9c12-1234-4567
+
+{
+  "name": "Srikanth Mamillapalli",
+  "email": "smamilla1208@outlook.com",
+  "phone": "9739211566",
+  "comment": "Interested in a vehicle"
+}</code></pre>
+
+<p>
+MySQL supports this design because <code>idempotency_key</code> is a normal VARCHAR column and can have a
+UNIQUE index.
+</p>
+
+<pre><code>ALTER TABLE customer_lead
+ADD CONSTRAINT uk_customer_lead_idempotency
+UNIQUE (idempotency_key);</code></pre>
+
+<h3>Recommended Duplicate Strategy</h3>
+<table>
+<tr><th>Scenario</th><th>Solution</th></tr>
+<tr><td>Same HTTP request submitted repeatedly</td><td>Idempotency-Key</td></tr>
+<tr><td>Same customer submits an existing lead</td><td>Service + Repository duplicate check</td></tr>
+<tr><td>Concurrent requests</td><td>Database UNIQUE constraint for applicable uniqueness rules</td></tr>
+<tr><td>Legitimate future lead from the same customer</td><td>Do not make email/phone globally unique unless the business requires it</td></tr>
+</table>
+
+<h2>5. Question 4 – Searchable Lead Report</h2>
+<h3>Requirement</h3>
+<p>
+Provide a report containing customer lead name, phone, email, account manager and current status.
+The report supports a combination of optional filters.
+</p>
+
+<h3>API</h3>
+<pre><code>GET /api/leads/report?
+    name=Srikanth
+    &amp;email=smamilla1208@outlook.com
+    &amp;phone=9876
+    &amp;accountManagerId=25
+    &amp;status=PROPOSAL
+    &amp;page=0
+    &amp;size=20</code></pre>
+
+<h3>Report Response</h3>
+<pre><code>{
+  "content": [
+    {
+      "id": 1001,
+      "name": "Srikanth Mamillapalli",
+      "phone": "9739211566",
+      "email": "smamilla1208@outlook.com",
+      "accountManagerId": 25,
+      "accountManager": "David",
+      "status": "PROPOSAL"
+    }
+  ],
+  "page": 0,
+  "size": 20
+}</code></pre>
+
+<h3>Report DTO</h3>
+<pre><code>public class LeadReportResponse {
+
+    private Long id;
+    private String name;
+    private String phone;
+    private String email;
+
+    private Long accountManagerId;
+    private String accountManager;
+
+    private LeadStatus status;
+}</code></pre>
+
+<h3>SQL Concept</h3>
+<pre><code>SELECT
+    l.id,
+    l.name,
+    l.phone,
+    l.email,
+    am.id AS account_manager_id,
+    am.name AS account_manager,
+    l.status
+FROM customer_lead l
+LEFT JOIN account_manager am
+    ON l.account_manager_id = am.id
+WHERE
+    (:name IS NULL OR
+        LOWER(l.name) LIKE LOWER(CONCAT('%', :name, '%')))
+AND (:email IS NULL OR
+        LOWER(l.email) LIKE LOWER(CONCAT('%', :email, '%')))
+AND (:phone IS NULL OR
+        l.phone LIKE CONCAT('%', :phone, '%'))
+AND (:accountManagerId IS NULL OR
+        l.account_manager_id = :accountManagerId)
+AND (:status IS NULL OR
+        l.status = :status);</code></pre>
+
+<h3>Implementation</h3>
+<p>
+Spring Data JPA Specification / Criteria API is suitable for this report because every filter is optional
+and the filters can be combined dynamically. Pagination should be implemented using Spring Data's
+<code>Pageable</code>.
+</p>
+
+<h2>6. Database Tables and Relationships</h2>
+
+<h3>account_manager</h3>
+<pre><code>CREATE TABLE account_manager (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    phone VARCHAR(20),
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);</code></pre>
+
+<h3>Complete Relationship</h3>
+<div class="diagram">
+ACCOUNT_MANAGER
+---------------
+id PK
+name
+email
+phone
+active
+    |
+    | 1
+    |
+    | *
+CUSTOMER_LEAD
+-------------
+id PK
+name
+email
+phone
+comment
+account_manager_id FK
+status
+close_reason
+idempotency_key UNIQUE
+created_at
+updated_at
+version
+    |
+    +--------------------------+
+    |                          |
+    | 1                        | 1
+    |                          |
+    | *                        | *
+LEAD_STATUS_HISTORY      LEAD_ASSIGNMENT_HISTORY
+-------------------      ------------------------
+id PK                    id PK
+lead_id FK               lead_id FK
+old_status               old_account_manager_id FK
+new_status               new_account_manager_id FK
+changed_by FK            assigned_by FK
+comments                 assigned_at
+changed_at
+</div>
+
+<h3>Relationship Details</h3>
+<table>
+<tr><th>Relationship</th><th>Description</th></tr>
+<tr><td>AccountManager 1 : N CustomerLead</td><td>One account manager can manage many leads. A lead has one current account manager or none before assignment.</td></tr>
+<tr><td>CustomerLead 1 : N LeadStatusHistory</td><td>Each lead can have multiple lifecycle changes.</td></tr>
+<tr><td>CustomerLead 1 : N LeadAssignmentHistory</td><td>Each lead can be assigned or reassigned multiple times.</td></tr>
+<tr><td>AccountManager 1 : N LeadStatusHistory</td><td>Records the account/user associated with a status change.</td></tr>
+<tr><td>AccountManager 1 : N LeadAssignmentHistory</td><td>Can represent old manager, new manager, or assigning user.</td></tr>
+</table>
+
+<h2>7. API Layered Architecture</h2>
+
+<div class="diagram">
+REST Controller
+      |
+      v
+Service Interface
+      |
+      v
+Service Implementation
+      |
+      +---------- Mapper
+      |
+      v
+Repository
+      |
+      v
+Spring Data JPA
+      |
+      v
+Hibernate
+      |
+      v
+MySQL
+</div>
+
+<h3>Controllers</h3>
+<ul>
+<li>CustomerLeadController</li>
+<li>AccountManagerController</li>
+<li>LeadStatusHistoryController</li>
+<li>LeadAssignmentHistoryController</li>
+</ul>
+
+<h3>Services</h3>
+<ul>
+<li>CustomerLeadService / CustomerLeadServiceImpl</li>
+<li>AccountManagerService / AccountManagerServiceImpl</li>
+<li>LeadStatusHistoryService / LeadStatusHistoryServiceImpl</li>
+<li>LeadAssignmentHistoryService / LeadAssignmentHistoryServiceImpl</li>
+</ul>
+
+<h3>Mappers</h3>
+<ul>
+<li>CustomerLeadMapper</li>
+<li>AccountManagerMapper</li>
+<li>LeadStatusHistoryMapper</li>
+<li>LeadAssignmentHistoryMapper</li>
+</ul>
+
+<h3>Repositories</h3>
+<pre><code>CustomerLeadRepository
+AccountManagerRepository
+LeadStatusHistoryRepository
+LeadAssignmentHistoryRepository</code></pre>
+
+<h2>8. Design Considerations</h2>
+
+<h3>Transaction Management</h3>
+<p>
+Lead updates and their corresponding history records should be part of the same transaction.
+For example, changing a lead's status and creating its status-history row should either both succeed
+or both roll back.
+</p>
+
+<pre><code>@Transactional
+public CustomerLeadResponse moveToProposal(Long leadId) {
+
+    // validate current state
+    // update lead status
+    // save lead
+    // save status history
+
+    // all operations participate in one transaction
+}</code></pre>
+
+<h3>Optimistic Locking</h3>
+<p>
+CRM users may update the same lead at the same time. The JPA <code>@Version</code> field helps detect
+lost-update scenarios and allows the application to return a conflict when an outdated record is saved.
+</p>
+
+<h3>Validation</h3>
+<pre><code>public class CustomerLeadRequest {
+
+    @NotBlank
+    private String name;
+
+    @NotBlank
+    @Email
+    private String email;
+
+    @Pattern(regexp = "^[0-9+ -]{7,20}$")
+    private String phone;
+
+    private String comment;
+}</code></pre>
+
+<h3>Exception Handling</h3>
+<p>
+Use <code>@RestControllerAdvice</code> for consistent API error responses. Typical cases include
+invalid input, lead not found, account manager not found, invalid lifecycle transition, and duplicate
+constraint conflicts.
+</p>
+
+<h3>Security</h3>
+<ul>
+<li>Customer lead creation should have request validation and appropriate rate limiting.</li>
+<li>CRM APIs should require authentication and authorization.</li>
+<li>Assignment/reassignment should be restricted to authorized sales roles.</li>
+<li>Lead status operations should follow role-based permissions.</li>
+<li>Audit fields such as changed_by and assigned_by should come from the authenticated user context.</li>
+</ul>
+
+<h3>Auditability</h3>
+<p>
+The status and assignment history tables provide a record of the lead lifecycle and ownership changes.
+This supports traceability, reporting and operational troubleshooting.
+</p>
+
+<h2>9. Complete API Summary</h2>
+<table>
+<tr><th>API</th><th>Method</th><th>Purpose</th></tr>
+<tr><td>/api/leads</td><td>POST</td><td>Capture customer lead</td></tr>
+<tr><td>/api/leads/{id}</td><td>GET</td><td>Retrieve lead</td></tr>
+<tr><td>/api/leads/{id}/assign</td><td>PUT</td><td>Assign or reassign account manager</td></tr>
+<tr><td>/api/leads/{id}/initial-call</td><td>PUT</td><td>Start Initial Call</td></tr>
+<tr><td>/api/leads/{id}/proposal</td><td>PUT</td><td>Move to Proposal</td></tr>
+<tr><td>/api/leads/{id}/present-proposal</td><td>PUT</td><td>Move to Present Proposal</td></tr>
+<tr><td>/api/leads/{id}/close</td><td>PUT</td><td>Close lead with applicable reason</td></tr>
+<tr><td>/api/leads/{id}/status-history</td><td>GET</td><td>Retrieve status history</td></tr>
+<tr><td>/api/leads/{id}/assignment-history</td><td>GET</td><td>Retrieve assignment history</td></tr>
+<tr><td>/api/leads/report</td><td>GET</td><td>Search and paginate leads</td></tr>
+</table>
+
+<h2>10. Solution Summary</h2>
+<div class="success">
+<ul>
+<li><strong>Lead Capture:</strong> REST API + DTO validation + JPA/Hibernate persistence.</li>
+<li><strong>CRM Lifecycle:</strong> Controlled status transitions with status and assignment history.</li>
+<li><strong>Duplicate Prevention:</strong> Repository/service business checks plus database uniqueness where required; Idempotency-Key for repeated HTTP submissions.</li>
+<li><strong>Reporting:</strong> Dedicated report DTO, dynamic filtering and pagination using Spring Data JPA.</li>
+<li><strong>Data Integrity:</strong> Foreign keys, unique constraints, transactions and optimistic locking.</li>
+<li><strong>Security:</strong> Authentication, authorization and audit information from the authenticated user.</li>
+</ul>
+</div>
+
+<div class="footer">
+<strong>AutoNation – Customer Lead Management API Solution Design</strong><br>
+Candidate: Srikanth Mamillapalli | smailla1208@outlook.com | 9739211566
+</div>
+
+</div>
+</body>
+</html>
